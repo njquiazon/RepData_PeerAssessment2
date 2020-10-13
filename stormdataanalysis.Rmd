@@ -1,0 +1,12 @@
+---
+title: "Storm Data Analysis"
+output: 
+  html_document:
+    keep_md: true
+---
+**Reading the data**
+```{r readdata, cache = TRUE}
+data <- read.csv("repdata_data_StormData.csv.bz2")
+str(data)
+```
+
