@@ -32,15 +32,12 @@ data <- read.csv("repdata_data_StormData.csv.bz2")
 glimpse(data)
 ```
 
-Subsets of the original data were taken in order to lessen the computation time. We are only interested in the columns that will give us the fatalities, injuries, property and crop damage estimates per event type. The data for getting accumulated fatalities, casualty, and property damages across the US were stored in two different data frames, namely *refdata1* and *refdata2*.
+A subset of the original data was taken in order to lessen the computation time. We are only interested in the columns that will give us the fatalities, injuries, property and crop damage estimates per event type. The data for getting accumulated fatalities, casualty, and property damages across the US were stored a data frame *refdata*.
 
 ```{r processdata, cache = TRUE}
-#Data frame to store fatalities and injuries
-refdata1 <- select(data, c(EVTYPE, FATALITIES, INJURIES))
-
-#Data frame to store property and crop damage estimates
+#Data frame to store event type, fatalities, injuries, crop and property damage estimates
 #The ifelse command converts the EXP codes into actual numbers
-refdata2 <- data %>% 
+refdata <- data %>% 
      mutate(PROPDMGEXP = 
                  ifelse(PROPDMGEXP == "B", 1000000000,
                  ifelse(PROPDMGEXP == "M", 1000000,
@@ -51,14 +48,32 @@ refdata2 <- data %>%
                  ifelse(CROPDMGEXP == "M", 1000000,
                  ifelse(CROPDMGEXP == "K", 1000, 0)))) %>%
      mutate(CROPDMG = CROPDMG*CROPDMGEXP) %>%
-     select(EVTYPE, PROPDMG, CROPDMG)
+     select(EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG)
+```
 
-#Showing the summaries of the two dataframes
-glimpse(refdata1)
-glimpse(refdata2)
+*refdata* was further cleaned by removing rows that give no additional value (rows where all columns are zero), and renaming misspelled *EVTYPE* inputs. Because there were various identifiers given to similar event types, the cleaning process also involved grouping the events into umbrella names that captured similar events into one identifier.
+
+```{r cleandata, cache = TRUE}
+#Removing rows with no damage, fatality, or casualty value (zero rows)
+refdata <- filter_at(refdata, vars(2:5), any_vars(. != 0))
+
+#Renaming data accordingly to eradicate misspellings and lapses in the recorded data
+#refdata$EVTYPE[grepl("SURF|HIGH TIDE|BEACH", refdata$EVTYPE, ignore.case = TRUE)] <- "HIGH TIDE"   
+
+
+#Storing the EVTYPE as factor      
+#refdata$EVTYPE<-factor(refdata$EVTYPE)
+
+#Showing the summary of the data frame
+#glimpse(refdata)
 ```
 
 ##**Results**
 
+```{r graph1, cache = TRUE}
+#Reducing the table to retain unique events data
 
-
+#Plotting the result
+#ggplot(refdata1, aes(fill=condition, y=value, x=specie))
+#      + geom_bar(position="stack", stat="identity")
+```
