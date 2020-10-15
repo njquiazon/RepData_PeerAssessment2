@@ -191,25 +191,24 @@ $(document).ready(function () {
 <div id="synopsis" class="section level2">
 <h2><strong>Synopsis</strong></h2>
 <p>This project was created to investigate the Storm Data made available by NOAA, and we are concerned in answering the following questions:</p>
-<blockquote>
 <ol style="list-style-type: decimal">
 <li>Across the United States, which types of events are most harmful with respect to population health?</li>
 <li>Across the United States, which types of events have the greatest economic consequences?</li>
 </ol>
-</blockquote>
 <p>The whole procedure consisted of the following steps: preprocessing of data, aggregation of the data, and plotting the data to check for trends. The <em>dplyr</em> package was used for cleaning and aggregation, while the <em>ggplot2</em> package was used for visualization.</p>
 <p>The data at hand contains quite a big amount of information, so loading and processing it as is will take quite some time. To resolve this, the data was reduced to include only the columns that were needed, specifically <em>EVTYPE</em>, <em>FATALITIES</em>, <em>INJURIES</em>, <em>PROPDMG</em>, <em>PRPDMGEXP</em>, <em>CROPDMG</em>, and <em>CROPDMGEXP</em>, corresponding respectively to the event type, fatality and injury counts, estimated property and crop damages. The property and crop damages were stored in two separate columns each, in actual digits and in units, so a simple conversion algorithm was created in order make this data useful. Then, empty rows were removed, and event types were regrouped in order to catch misspelled event types that were falsely listed separately.</p>
 <p><conclusion></p>
 </div>
 <div id="data-processing" class="section level2">
 <h2><strong>Data Processing</strong></h2>
-<p>The procedures in this study used <em>dplyr</em> and <em>ggplot2</em> packages in <em>R</em>. Make sure these packages were already downloaded with the <em>install.packages()</em> command to avoid error prompts when rerunning the steps.</p>
+<p>The procedures in this study used <em>dplyr</em> and <em>ggplot2</em> packages in <em>R</em>. Make sure these packages were already downloaded with the <em>install.packages()</em> command to avoid errors when rerunning the steps.</p>
 <pre class="r"><code>#Loading necessary libraries
 library(dplyr)
-library(ggplot2)</code></pre>
-<pre class="r"><code>#Reading and displaying a summary of the data
+library(ggplot2)
+
+#Reading the data and storing in a data frame
 data &lt;- read.csv(&quot;repdata_data_StormData.csv.bz2&quot;)</code></pre>
-<p>A subset of the original data was taken in order to lessen the computation time. We are only interested in the columns that will give us the fatalities, injuries, property and crop damage estimates per event type. The data for getting accumulated fatalities, casualty, and property damages across the US were stored a data frame <em>refdata</em>.</p>
+<p>A subset of the original data was taken in order to lessen the computation time. We are only interested in the columns that will give us the fatalities, injuries, property and crop damage estimates per event type. The data for getting accumulated fatalities, injuries, and property damages across the US were stored in a data frame <em>refdata</em>.</p>
 <pre class="r"><code>#Data frame to store event type, fatalities, injuries, crop and property damage estimates
 #The ifelse command converts the EXP codes into actual numbers
 refdata &lt;- data %&gt;% 
@@ -224,20 +223,64 @@ refdata &lt;- data %&gt;%
                  ifelse(CROPDMGEXP == &quot;K&quot;, 1000, 0)))) %&gt;%
      mutate(CROPDMG = CROPDMG*CROPDMGEXP) %&gt;%
      select(EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG)</code></pre>
-<p><em>refdata</em> was further cleaned by removing rows that give no additional value (rows where all columns are zero), and renaming misspelled <em>EVTYPE</em> inputs. Because there were various identifiers given to the same event types, the cleaning process also involved grouping the events into umbrella names that captured such events into one identifier. Following the <em>Storm Data Event Table</em>, table 2.1.1 on page 6 of the <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf">NWS Storm Data Documentation</a>, <em>EVTYPE</em> variable was reduced to a factor with 48 levels. The levels and their corresponding values in the <em>refdata</em> table were:</p>
-<p><Put 48 levels here></p>
+<p><em>refdata</em> was further cleaned by removing rows that give no additional value (rows where all columns are zero), and renaming misspelled <em>EVTYPE</em> inputs. Because there were various identifiers given to the same event types, the cleaning process also involved grouping the events into umbrella names that captured such events into one identifier. Following the <em>Storm Data Event Table</em>, Table 1 of section 2.1.1 on page 6 of the <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf">NWS Storm Data Documentation</a>, <em>EVTYPE</em> variable was reduced to a factor with 36 levels. The original list contained 48 events, but some events were repeating and/or highly similar, so regrouping seemed necessary.</p>
 <pre class="r"><code>#Removing rows with no damage, fatality, or casualty value (zero rows)
 refdata &lt;- filter_at(refdata, vars(2:5), any_vars(. != 0))
 
-#Renaming data accordingly to eradicate misspellings and lapses in the recorded data
-#refdata$EVTYPE[grepl(&quot;SURF|HIGH TIDE|BEACH&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;HIGH TIDE&quot;   
+#Temporarily setting EVYTPE as character for string comparisons using grepl
+refdata$EVTYPE &lt;- as.character(refdata$EVTYPE)
 
+#Renaming and regrouping data accordingly to eradicate misspellings and lapses in the recorded data
+refdata$EVTYPE[grepl(&quot;LOW\\sTIDE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;LOW TIDE&quot;
+refdata$EVTYPE[grepl(&quot;AVALAN&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;AVALANCHE&quot;
+refdata$EVTYPE[grepl(&quot;BLIZZARD&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;BLIZZARD&quot;
+refdata$EVTYPE[grepl(&quot;FLOOD|FLD|STREAM|URBAN|RISING&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;FLOOD&quot;
+refdata$EVTYPE[grepl(&quot;COLD|WIND\\sCHILL|COOL|WINTER|WINDCHILL|HYPOTHERMIA|LOW\\sTEMP&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;COLD&quot;
+refdata$EVTYPE[grepl(&quot;FOG&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;FOG&quot;
+refdata$EVTYPE[grepl(&quot;SMOKE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;SMOKE&quot;
+refdata$EVTYPE[grepl(&quot;DROUGHT|DOUGHT&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;DOUGHT&quot;
+refdata$EVTYPE[grepl(&quot;DUST&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;DUST&quot;
+refdata$EVTYPE[grepl(&quot;HEAT|WARM|HYPERTHERMIA&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;HEAT&quot;
+refdata$EVTYPE[grepl(&quot;FROST|FREEZE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;FREEZE&quot;
+refdata$EVTYPE[grepl(&quot;HAIL&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;HAIL&quot;
+refdata$EVTYPE[grepl(&quot;RAIN|WETNESS|PRECIPITATION|SWELL|SHOWER&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;RAIN&quot;
+refdata$EVTYPE[grepl(&quot;SNOW|ICE|DRIZZLE|FREEZING|GLAZE|ICY&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;SNOW&quot;
+refdata$EVTYPE[grepl(&quot;HIGH\\sTIDE|SURF|HIGH\\sWATER|HIGH\\sSEA&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;HIGH TIDE/SURF&quot;
+refdata$EVTYPE[grepl(&quot;TSTM|THUNDERSTORM&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;THUNDERSTORM_WIND&quot;
+refdata$EVTYPE[grepl(&quot;WIND|DOWNBURST|MICROBURST|GRADIENT|GUST|TURBULENCE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;WIND&quot;
+refdata$EVTYPE[grepl(&quot;HURRICANE|TYPHOON&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;HURRICANE/TYPHOON&quot;
+refdata$EVTYPE[grepl(&quot;ICE\\sSTORM&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;ICE STORM&quot;
+refdata$EVTYPE[grepl(&quot;LIGHTNING|LIGNTNING|LIGHTING&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;LIGHTNING&quot;
+refdata$EVTYPE[grepl(&quot;RIP\\sCURRENT&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;RIP CURRENT&quot;
+refdata$EVTYPE[grepl(&quot;SEICHE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;SEICHE&quot;
+refdata$EVTYPE[grepl(&quot;SLEET&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;SLEET&quot;
+refdata$EVTYPE[grepl(&quot;SURGE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;STORM SURGE&quot;
+refdata$EVTYPE[grepl(&quot;TORNADO|TORNDAO&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;TORNADO&quot;
+refdata$EVTYPE[grepl(&quot;EROSION&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;COASTAL EROSION&quot;
+refdata$EVTYPE[grepl(&quot;TROPICAL|STORM&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;TROPICAL STORM/DEPRESSION&quot;
+refdata$EVTYPE[grepl(&quot;TSUNAMI&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;TSUNAMI&quot;
+refdata$EVTYPE[grepl(&quot;WATERSPOUT&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;WATERSPOUT&quot;
+refdata$EVTYPE[grepl(&quot;FIRE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;WILDFIRE&quot;
+refdata$EVTYPE[grepl(&quot;SLIDE|SLUMP&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;LAND/MUD/ROCK SLIDE&quot;
+refdata$EVTYPE[grepl(&quot;HEAVY\\sSEAS|WAVE|SEAS&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;WAVES&quot;
+refdata$EVTYPE[grepl(&quot;WINTRY|HEAVY\\sMIX|MIXED&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;WITRY MIX&quot;
+refdata$EVTYPE[grepl(&quot;ACCIDENT|MISHAP|DROWN|OTHER|\\?|APACHE&quot;, refdata$EVTYPE, ignore.case = TRUE)] &lt;- &quot;OTHERS&quot;
 
-#Storing the EVTYPE as factor      
-#refdata$EVTYPE&lt;-factor(refdata$EVTYPE)
+#Restoring EVTYPE as factor      
+refdata$EVTYPE&lt;-as.factor(refdata$EVTYPE)
+
+#Merging rows of the same event
+refdata &lt;- refdata %&gt;% group_by(EVTYPE) %&gt;% summarise(FATALITIES = sum(FATALITIES), INJURIES = sum(INJURIES), PROPDMG = sum(PROPDMG), CROPDMG = sum(CROPDMG))
 
 #Showing the summary of the data frame
-#glimpse(refdata)</code></pre>
+glimpse(refdata)</code></pre>
+<pre><code>## Rows: 36
+## Columns: 5
+## $ EVTYPE     &lt;fct&gt; AVALANCHE, BLIZZARD, COASTAL EROSION, COLD, DAM BREAK…
+## $ FATALITIES &lt;dbl&gt; 225, 101, 0, 761, 0, 6, 24, 1554, 80, 2, 0, 45, 3173,…
+## $ INJURIES   &lt;dbl&gt; 171, 805, 0, 2216, 0, 19, 483, 8683, 1076, 3, 3, 1467…
+## $ PROPDMG    &lt;dbl&gt; 8721800, 659913950, 866000, 7024179700, 1002000, 1046…
+## $ CROPDMG    &lt;dbl&gt; 0, 112060000, 0, 1486209550, 0, 13972621780, 3600000,…</code></pre>
 </div>
 <div id="results" class="section level2">
 <h2><strong>Results</strong></h2>
