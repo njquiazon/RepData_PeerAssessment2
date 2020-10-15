@@ -1,8 +1,9 @@
 ---
 title: "Storm Data Analysis"
-output: 
+output:
   html_document:
-    keep_md: true
+    keep_md: yes
+  pdf_document: default
 ---
 ##**Synopsis**
 This project was created to investigate the Storm Data made available by NOAA, and we are concerned in answering the following questions:
