@@ -10,21 +10,25 @@ This project was created to investigate the Storm Data made available by NOAA, a
 1. Across the United States, which types of events are most harmful with respect to population health?
 2. Across the United States, which types of events have the greatest economic consequences?
 
-The whole procedure consisted of the following steps: preprocessing of data, aggregation of the data, and plotting the data to check for trends. The *dplyr* package was used for cleaning and aggregation, while the *ggplot2* package was used for visualization.
+The whole procedure consisted of the following steps: preprocessing of data, aggregation of the data, and plotting the data to check for trends. The *dplyr* and *tidyr* packages were used for cleaning and aggregation, while the *ggplot2* package was used for visualization.
 
 The data at hand contains quite a big amount of information, so loading and processing it as is will take quite some time. To resolve this, the data was reduced to include only the columns that were needed, specifically *EVTYPE*, *FATALITIES*, *INJURIES*, *PROPDMG*, *PRPDMGEXP*, *CROPDMG*, and *CROPDMGEXP*, corresponding respectively to the event type, fatality and injury counts, estimated property and crop damages. The property and crop damages were stored in two separate columns each, in actual digits and in units, so a simple conversion algorithm was created in order make this data useful. Then, empty rows were removed, and event types were regrouped in order to catch misspelled event types that were falsely listed separately.
 
-<conclusion>
+We found out that the most harmful event for human health was *tornado*, while the most economically impactful event was *flood*.
 
 ##**Data Processing**
 
-The procedures in this study used *dplyr* and *ggplot2* packages in *R*. Make sure these packages were already downloaded with the *install.packages()* command to avoid errors when rerunning the steps.
+The procedures in this study used *dplyr*, *tidyr*, and *ggplot2* packages in *R*. Make sure these packages were already downloaded with the *install.packages()* command to avoid errors when rerunning the steps.
 
-```{r init, cache = TRUE, message = FALSE}
+```{r init, message = FALSE}
 #Loading necessary libraries
 library(dplyr)
+library(tidyr)
 library(ggplot2)
+```
 
+Data was then stored in a data framr using the function *read.csv()*.
+```{r readdata, cache = TRUE, message = FALSE}
 #Reading the data and storing in a data frame
 data <- read.csv("repdata_data_StormData.csv.bz2")
 ```
@@ -65,7 +69,7 @@ refdata$EVTYPE[grepl("FLOOD|FLD|STREAM|URBAN|RISING", refdata$EVTYPE, ignore.cas
 refdata$EVTYPE[grepl("COLD|WIND\\sCHILL|COOL|WINTER|WINDCHILL|HYPOTHERMIA|LOW\\sTEMP", refdata$EVTYPE, ignore.case = TRUE)] <- "COLD"
 refdata$EVTYPE[grepl("FOG", refdata$EVTYPE, ignore.case = TRUE)] <- "FOG"
 refdata$EVTYPE[grepl("SMOKE", refdata$EVTYPE, ignore.case = TRUE)] <- "SMOKE"
-refdata$EVTYPE[grepl("DROUGHT|DOUGHT", refdata$EVTYPE, ignore.case = TRUE)] <- "DOUGHT"
+refdata$EVTYPE[grepl("DROUGHT|DOUGHT", refdata$EVTYPE, ignore.case = TRUE)] <- "DROUGHT"
 refdata$EVTYPE[grepl("DUST", refdata$EVTYPE, ignore.case = TRUE)] <- "DUST"
 refdata$EVTYPE[grepl("HEAT|WARM|HYPERTHERMIA", refdata$EVTYPE, ignore.case = TRUE)] <- "HEAT"
 refdata$EVTYPE[grepl("FROST|FREEZE", refdata$EVTYPE, ignore.case = TRUE)] <- "FREEZE"
@@ -97,18 +101,53 @@ refdata$EVTYPE[grepl("ACCIDENT|MISHAP|DROWN|OTHER|\\?|APACHE", refdata$EVTYPE, i
 refdata$EVTYPE<-as.factor(refdata$EVTYPE)
 
 #Merging rows of the same event
-refdata <- refdata %>% group_by(EVTYPE) %>% summarise(FATALITIES = sum(FATALITIES), INJURIES = sum(INJURIES), PROPDMG = sum(PROPDMG), CROPDMG = sum(CROPDMG))
+refdata <- refdata %>% 
+      group_by(EVTYPE) %>% 
+      summarise(FATALITIES = sum(FATALITIES), INJURIES = sum(INJURIES), PROPDMG = sum(PROPDMG), CROPDMG = sum(CROPDMG))
 
 #Showing the summary of the data frame
 glimpse(refdata)
 ```
 
 ##**Results**
-
-```{r graph1, cache = TRUE}
-#Reducing the table to retain unique events data
-
-#Plotting the result
-#ggplot(refdata1, aes(fill=condition, y=value, x=specie))
-#      + geom_bar(position="stack", stat="identity")
+The data for health effects was transformed through this code block. Only the top 10 events in terms of total fatalities and injurues were included in the graph.
+```{r health, cache = TRUE, message = FALSE}
+health <- refdata %>% 
+      mutate(HLTH = INJURIES + FATALITIES) %>% 
+      arrange(desc(HLTH)) %>%
+      top_n(10) %>%
+      select(EVTYPE, FATALITIES, INJURIES) %>%
+      gather(key = "TYPE", value = "VALUE", FATALITIES:INJURIES)
 ```
+
+Generating the plot for 10 most harmful events in terms of human health:
+```{r plot1}
+ggplot(health, aes(x = reorder(EVTYPE,-VALUE), y = VALUE, fill = TYPE)) + 
+      geom_bar(stat = "identity") + 
+      labs(title = "Most Harmful Events to Population Health", x="Event", y="Count") +
+      theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle=45, hjust=1)) + 
+      scale_y_continuous(labels = scales::comma)
+```
+
+We found out that **the most harmful event for human health was tornado**, followed by (strong) wind, heat, flood, and lightning. We may notice that most of the events in the top 10, at least in terms of human health, were events related to changes in weather.
+
+The data for economic consequences was transformed through this code block. Only the top 10 events in terms of total crop and property damages were included in the graph.
+```{r damage, cache = TRUE, message = FALSE}
+damage <- refdata %>% 
+      mutate(DMG = PROPDMG + CROPDMG) %>% 
+      arrange(desc(DMG)) %>%
+      top_n(10) %>%
+      select(EVTYPE, PROPDMG, CROPDMG) %>%
+      gather(key = "TYPE", value = "VALUE", PROPDMG:CROPDMG)
+```
+
+Generating the plot for 10 most economically impactful events:
+```{r plot2}
+ggplot(damage, aes(x = reorder(EVTYPE,-VALUE), y = VALUE, fill = TYPE)) + 
+      geom_bar(stat = "identity") + 
+      labs(title = "Events with Greatest Economic Consequences", x="Event", y="Estimated Cost (in Dollars)") +
+      theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle=45, hjust=1)) +
+      scale_y_continuous(labels = scales::comma)
+```
+
+We found out that **the most harmful event economically was flood**, followed by hurricane/typhoon, tornado, tropical storm/deression, and hail. We may notice that most of the events in the top 10 for the economical category are still consequences of changes in weather.
